@@ -1,0 +1,51 @@
+---
+title: "Fence expansion evaluation"
+author: "Trevor Davies"
+date: '2022-03-01'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(readxl)
+library(lubridate)
+#https://bookdown.org/yihui/rmarkdown-cookbook/
+```
+
+## Introduction and Project Scope
+
+The Babine river has a salinine enumeration facility encounters all five Pacific salmon species in addition to steelhead.  The primary goal of the facility is to enumerate sockeye, chinook and pink salmon whose runs span from mid-July and are generally over by mid-October.  The Coho run frequently continues outside the historical monitoriing period (i.e after October 15th of each year) and consequently suffers from truncated and incomplete counts.  Previous to the work here, total run counts were estimated using data from years thought to have complete counts to estimate the "missing proportion".  This approach is limited as it does not make use of anxillary information that may be useful to account for within-year run timing variability.
+
+Here, I employ a Bayesian hierarchical model that uses **** information to estimate total run for Coho at the Babine fishway from 1950 through 2021.  I use an approach similar to Walsworth and Schindler (2015)
+
+
+```{r read_data,echo=FALSE}
+# Code below reads in data from excel and changes the matrix into a data frame, into long format, fixes dates and adds julian day.
+data1 <- read_excel("../Data/DFO/Babine Coho Daily 1946-2021.xlsx", sheet="Coho",  col_names = T )  %>% 
+  gather("Year","Count",-Date) %>% mutate(Year= as.numeric(Year),day=day(Date),month=month(Date),julian=yday(Date), Date=ymd(paste(Year,month,day)),fake.date=as_date(julian,origin="2021-01-01")) %>% 
+  filter(!is.na(Count))
+
+### identify common starting data
+first_fish <- data1 %>%  
+  group_by(julian) %>%
+  summarize(total_julian = sum(Count, na.rm = TRUE)) %>%
+  filter(total_julian !=0) %>% slice(1)  # in all datasets first fish was never before julian 199
+
+complete_years <- c(1950,1952,1953,1957,1976,1977, 1979,1985, 1989, 1991, 1994, 1995, 1996, 1997, 1998, 1999, 2021)
+```
+
+## Data Description
+The data used here spans from `r min(data1$Year)` through `r max(data1$Year)`
+
+The earliest day in data used in this projects begins in `r format(as.Date(first_fish$julian, origin=as.Date("2021-01-01")),"%m-%d")` and complete counts are assumed to be `r complete_years`.
+
+
+```{r full_years, echo=FALSE}
+
+x1 <- data1 %>% filter(Year %in% complete_years, julian > first_fish$julian)
+ggplot(data=x1, aes(x=julian,y=Count)) + geom_bar(stat='identity') + facet_wrap(.~ Year,ncol = 3, scales = "free_y") +theme_bw()
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

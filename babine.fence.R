@@ -4,12 +4,13 @@
 # Author: Kristen P., DFO 
 # Created 2 Sept 2021
 
+#Trevor starting hacking it Feb 22, 2022
 
-library(plyr)
-library(dplyr)
-library(readxl)
+#library(plyr)
+#library(dplyr)
 library(tidyverse)
-library(ggplot2)
+#library(ggplot2)
+library(readxl)
 library(lubridate)
 
 #### ggplot theme ####
@@ -41,11 +42,10 @@ theme_babine4 <- function(base_size = 14) {
 }
 
 
-
-##### Babine fence ####
+##### LOAD DATA: Babine fence ####
 
 #newer coho data #Babine 1946-2021:
-babine194620 <- read_excel("Babine Coho Daily 1946-2021.xlsx", sheet="Coho",
+babine194620 <- read_excel("../Data/DFO/Babine Coho Daily 1946-2021.xlsx", sheet="Coho",
                           col_names = T ) %>% 
   gather("Year","Count",-Date) %>% 
   mutate(Year= as.numeric(Year),day=day(Date),month=month(Date),julian=yday(Date),
