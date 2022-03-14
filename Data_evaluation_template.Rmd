@@ -1,8 +1,14 @@
 ---
-title: "Fence expansion evaluation"
+title: "Fence expansion prelinary report"
 author: "Trevor Davies"
 date: '2022-03-01'
-output: html_document
+output:
+  #bookdown::html_document2: default
+  bookdown::pdf_document2: default
+bibliography: references.bib  
+link-citations: yes
+linkcolor: blue
+csl: https://raw.githubusercontent.com/citation-style-language/styles/master/american-fisheries-society.csl
 ---
 
 ```{r setup, include=FALSE}
@@ -10,14 +16,17 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(readxl)
 library(lubridate)
+library(bookdown)
+library(splines)
+library(rstan)
 #https://bookdown.org/yihui/rmarkdown-cookbook/
 ```
 
-## Introduction and Project Scope
+# Introduction and Project Scope
 
 The Babine river has a salinine enumeration facility encounters all five Pacific salmon species in addition to steelhead.  The primary goal of the facility is to enumerate sockeye, chinook and pink salmon whose runs span from mid-July and are generally over by mid-October.  The Coho run frequently continues outside the historical monitoriing period (i.e after October 15th of each year) and consequently suffers from truncated and incomplete counts.  Previous to the work here, total run counts were estimated using data from years thought to have complete counts to estimate the "missing proportion".  This approach is limited as it does not make use of anxillary information that may be useful to account for within-year run timing variability.
 
-Here, I employ a Bayesian hierarchical model that uses **** information to estimate total run for Coho at the Babine fishway from 1950 through 2021.  I use an approach similar to Walsworth and Schindler (2015)
+Here, I employ two additional approaches to obtain robust estimates of escapement for the Babine Coho salmon population.  First, similar to @cite-walsworth2015 I employ a Bayesian hierarchical model that uses environmental covariates to obtain more robust estimates of total run and daily estimates for Coho at the Babine fishway from 1950 through 2021 where data were not recorded.  Second, to investigate additional methods to estimate missing counts, I employ a novel hierarchical Generalized Additive Model (GAM) that also uses other data to obtain estimates. I compare and contrast these three methods.
 
 
 ```{r read_data,echo=FALSE}
@@ -33,19 +42,164 @@ first_fish <- data1 %>%
   filter(total_julian !=0) %>% slice(1)  # in all datasets first fish was never before julian 199
 
 complete_years <- c(1950,1952,1953,1957,1976,1977, 1979,1985, 1989, 1991, 1994, 1995, 1996, 1997, 1998, 1999, 2021)
+base_yrs <- c(1950,1952,1957,	1976,	1977,	1979,	1985,	1989,	1995,	1998)
+
 ```
 
-## Data Description
-The data used here spans from `r min(data1$Year)` through `r max(data1$Year)`
+# Data Description
+The data used here spans from `r min(data1$Year)` through `r max(data1$Year)`.
 
 The earliest day in data used in this projects begins in `r format(as.Date(first_fish$julian, origin=as.Date("2021-01-01")),"%m-%d")` and complete counts are assumed to be `r complete_years`.
 
 
-```{r full_years, echo=FALSE}
+# Modelling Approach
 
-x1 <- data1 %>% filter(Year %in% complete_years, julian > first_fish$julian)
-ggplot(data=x1, aes(x=julian,y=Count)) + geom_bar(stat='identity') + facet_wrap(.~ Year,ncol = 3, scales = "free_y") +theme_bw()
+Here we will be evaluating and comparing three methods of total escapement estimation.  First, is using historical correction method 
+
+
+
+
+
+```{r ref-years,fig.cap="Base years by GAM", echo=FALSE, eval = TRUE}
+#x1 <- data1 %>% filter(Year %in% complete_years, julian > first_fish$julian)
+#ggplot(data=x1, aes(x=julian,y=Count)) + geom_bar(stat='identity') + facet_wrap(.~ Year,ncol = 3, scales = "free_y") +theme_bw()
+
+#ggplot(x1, aes(x = julian, y = Count, fill = as.character(Year))) + geom_ribbon(stat = "smooth", aes(ymin = 0, ymax = ..y..), colour="black",alpha = .2,  method = "gam", se=FALSE, formula = y ~ s(x, k = 60))
+
+
+x2 <- data1 %>% filter(Year %in% base_yrs, julian > first_fish$julian)
+
+ggplot(x2, aes(x = julian, y = Count)) + geom_point(alpha=.75) + geom_segment(aes(x = julian,xend=julian,y=0,yend=Count),alpha=0.75) + geom_ribbon(stat = "smooth", aes(ymin = 0, ymax = ..y..), colour="black",alpha = .2,  method = "gam", se=FALSE, formula = y ~ s(x, k = 40)) +theme_bw() + facet_wrap(.~ Year,ncol = 2) 
+
+
+
+#ggplot(x1, aes(x=julian,y=Count, fill=as.character(Year))) +
+ #   geom_bar(stat="identity",position=position_dodge()) +
+  #  geom_smooth(aes(colour=as.character(Year)), se=F,
+   #             method="glm",
+    #            formula=y~ns(x,8),
+     #           family=gaussian(link="log"),
+      #          show_guide = FALSE,lwd=0.7) +
+#    theme(legend.position=c(.2,0.8))
+
 
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+See Figure \@ref(fig:ref-years). 
+
+# Methods 
+## Bayesian Hierarchical model
+
+Here, I will be using the approach described in @cite\
+
+Also see Equation \@ref(eq:mean).
+
+\begin{equation}
+\bar{X} = \frac{\sum_{i=1}^n X_i}{n} (\#eq:mean)
+\end{equation} 
+
+# References
+
+<div id="refs"></div>
+
+# Appendix A: STAN {-} 
+Stan is a Bayesian modelling and programming language that can be called from R [@cite-R] via the rstan package [@cite-stan]. Following is the model code  
+
+## Appendix A-1: Naive model
+1. Naive model: simulated data
+2. Naive model: single year
+3. Naive model: multiple years
+4. Naive model: Hierarchical
+5. Informed model: hierarchical.
+
+### Naive model: simulated data
+First as a proof of concept I generate simulated data and fit the model to ensure I can recapture the parameters. The starting values are as follows
+
+```stan
+data {
+  int N;        // Number of observations (101)
+  int y[N];     // Vector of observations
+  vector[N] x;  // Vector of DOY
+}
+ 
+// The parameters we are going to estimate in our model
+parameters {
+  real<lower=0> p;  // day of peak escapement  
+  real log_r;       // total escapement 
+  real<lower=0, upper=15> sigma; //standard deviation in arrival timing
+  real<lower=0> reciprocal_phi;  // over dispersion parameter for the negative binomial 
+}
+ 
+transformed parameters{
+  real r=exp(log_r);  
+  real phi;
+  vector[N] log_phi2;
+  vector[N] c_hat;     // expected values of the model
+  phi = 1. / reciprocal_phi;
+//// These are vectorized
+  log_phi2 = -square(x-p) / (2*square(sigma));
+  c_hat = log_r + log_phi2 - log_sum_exp(log_phi2);
+}
+
+ model {
+  //Priors
+  reciprocal_phi ~ cauchy(0., 3);
+  log_r ~ uniform(1,20);
+  sigma ~ cauchy(0., 3);
+  p ~ uniform(50, 330);
+  // MODEL 
+  y ~ neg_binomial_2_log(c_hat, phi);
+}
+
+generated quantities {
+  vector[N] mu;
+  //vector[N] log_lik;
+  vector[N] y_rep;
+  mu = exp(c_hat);
+for (i in 1:N) {
+  //log_lik[i] = neg_binomial_2_log_lpmf(y[i] | c_hat[i], phi);
+  y_rep[i] = neg_binomial_2_log_rng(c_hat[i], phi);
+  }
+}
+```
+
+## Appendix A-2: Final model that includes environmental covariates
+
+Here, I will give a brief example of how stan works in R by demonstrating how to run  a bayesisn generalized linear model with normal error structure (equivalent to a least-squares regression).
+https://mc-stan.org/docs/2_18/stan-users-guide/hierarchical-logistic-regression.html
+https://mc-stan.org/cmdstanr/articles/r-markdown.html
+
+# Appendix B: Comparison with Reference {-} 
+
+[//]: # (This is how you can comment within a markdown doc)
+
+# Appendix C: Generalized Additive Modelling (GAM)  {-} 
+Here I use the 
+
+## Appendix C-1: Naive model
+First is the Naive single model
+
+```{r naive_single, echo=FALSE, eval = FALSE}
+
+### trying the model!
+# I will try one base year
+
+single_base <- data1 %>% filter(Year %in% 1952)
+
+single_dat <- with(single_base,list(count=Count,doy=seq(1:nrow(single_base)),N=nrow(single_base)))
+
+fit <- stan(file = '../stan/babine/naive_single.stan', data = single_dat)
+#/Users/mykiss/Dropbox/mydocs/employment/2022/Babine/stan/babine
+```
+
+
+
+
+## Appendix C-2: Final model that includes environmental covariates
+
+The advantage of a hierarchical structure is that it allows the data from all year to inform each other to ideally obtain better estimates for each years parameters.  Hyper priors are quite important particularly on sigma as(see 53 min of video - use half cauchy for sigma )
+
+https://peerj.com/articles/6876/
+https://en.wikipedia.org/wiki/Generalized_additive_model
+
+
