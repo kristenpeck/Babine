@@ -547,7 +547,7 @@ plot.holtby.exp <- ggplot(total.byyr)+
   geom_col(aes(x=Year, y=estimated.total), fill="grey50") + 
   geom_col(aes(x=Year, y=total.counted), fill="grey15") +
    geom_hline(aes(yintercept=1200))+
-   geom_hline(aes(yintercept=11500),linetype="dashed")+ #LRP from Holtby at 11500
+   geom_hline(aes(yintercept=11500),linetype="dashed")+ # from Holtby at 11500
  # geom_vline(aes(xintercept=c(1992)), linetype="dotted")+
   scale_x_continuous(limits = c(1999,2026),breaks = seq(2000,2026,2))+
   scale_y_continuous(limits = c(0,24000), breaks = seq(0,24000,4000))+
