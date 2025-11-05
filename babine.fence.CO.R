@@ -73,27 +73,27 @@ theme_babine5 <- function(base_size = 14) {
 
 #### Babine fence COHO ####
 
-#newer coho data #Babine 1946-2024:
-babine194624 <- read_excel("Babine Coho Daily 1946-2024.xlsx", sheet="Coho",
+#newer coho data #Babine 1946-2025:
+babine194625 <- read_excel("Babine Coho Daily 1946-2025.xlsx", sheet="Coho",
                           col_names = T ) %>% 
   gather("Year","Count",-Date) %>% 
   mutate(Year= as.numeric(Year),day=day(Date),month=month(Date),julian=yday(Date),
-         Date=ymd(paste(Year,month,day)),fake.date=as_date(julian-1,origin="2024-01-01")) %>% 
+         Date=ymd(paste(Year,month,day)),fake.date=as_date(julian-1,origin="2025-01-01")) %>% 
   filter(!is.na(Count))
 
 #get total counts by year
-(total.counts.CO <- babine194624 %>% 
+(total.counts.CO <- babine194625 %>% 
   dplyr::group_by(Year) %>% 
   dplyr::summarize(total.CO = sum(Count)))
 
 #calc cumulative proportion of the daily run by year, add columns
-babine.all <- ddply(babine194624, "Year", summarize, Date=Date, Count=Count, 
+babine.all <- plyr::ddply(babine194625, "Year", summarize, Date=Date, Count=Count, 
       cumulsum = cumsum(Count)) %>% 
   left_join(total.counts.CO) %>% 
   mutate(daily.prop = Count/total.CO, 
          cumulprop = round(cumulsum/total.CO,2),
          day=day(Date),month=month(Date),julian=yday(Date),
-        fake.date=as_date(julian-1,origin="2024-01-01"),
+        fake.date=as_date(julian-1,origin="2025-01-01"),
         decade = ifelse(Year %in% c(1940:1949), "1940s",
                         ifelse(Year %in% c(1950:1959), "1950s",
                                ifelse(Year %in% c(1960:1969), "1960s",
@@ -109,7 +109,7 @@ unique(babine.all[,c("Year","decade")])
 
 
 #pick extension years based on date of operation - mid-Oct cutoff
-yday(ymd("2024-10-15")) #this excludes 1950, which operated until 288
+yday(ymd("2025-10-15")) #this excludes 1950, which operated until 288
 
 (extension.yrs <- as.vector(unique(babine.all[which(babine.all$julian >= 289),"Year"])))
 length(extension.yrs)
@@ -142,8 +142,8 @@ babine.extensions2 <- babine.all %>%
   filter(Year %in% base.yrs)
 
 # #current year:
- babine2024 <- babine.all %>% 
-   filter(Year %in% 2024)
+ babine2025 <- babine.all %>% 
+   filter(Year %in% 2025)
           
  
 #plot years together:              
@@ -151,8 +151,8 @@ plot.decadal.coho <- ggplot()+
   geom_ribbon(data=extension.by.decade,
               aes(x=fake.date, ymin=CI.lower, ymax=CI.upper, fill=decade),
               alpha = 0.5)+
-  geom_line(data=babine2024,aes(x=Date,y=Count),col="black",linewidth=1)+
-  scale_x_date(limits = c(as_date("2024-Aug-10"),as_date("2024-dec-05")),
+  geom_line(data=babine2025,aes(x=Date,y=Count),col="black",linewidth=1)+
+  scale_x_date(limits = c(as_date("2025-Aug-10"),as_date("2025-dec-05")),
                date_breaks= "1 week", date_labels = "%d-%b")+
   labs(x="Date",y="Daily Coho Count", fill="")+
   theme_babine4()
@@ -165,10 +165,10 @@ plot.decadal.coho
 ggplot()+
   geom_line(data=babine.extensions2,
             aes(x=fake.date,y=Count,col=as.factor(Year)),size=1)+
-  geom_line(data=babine2024,aes(x=Date,y=Count),col="black",size=1.5)+
-  scale_x_date(limits = c(as_date("2024-Aug-10"),as_date("2024-nov-22")),
+  geom_line(data=babine2025,aes(x=Date,y=Count),col="black",size=1.5)+
+  scale_x_date(limits = c(as_date("2025-Aug-10"),as_date("2025-nov-22")),
                date_breaks= "1 week", date_labels = "%d%b")+
-  labs(title="2024 compared to Base Years (Holtby)")+
+  labs(title="2025 compared to Base Years (Holtby)")+
   theme(legend.position = "bottom",
         axis.text.x = element_text(size=8,angle =45, hjust=1),
         legend.text = element_text(size=8),title = element_text(size=6),
@@ -232,12 +232,12 @@ tmp1 <- tmp %>%
 tmp2 <- tmp %>% 
   filter(Year %in% c(1990:1999))
 tmp3 <- tmp %>% 
-  filter(Year %in% c(2000:2024))
+  filter(Year %in% c(2000:2025))
 
 plot.dist.timing1 <- ggplot(data=tmp1)+
   geom_ribbon(aes(x=fake.date, ymin=0, ymax=Count, fill=periodf))+
   geom_line(aes(x=fake.date, y=Count), col="black")+
-  geom_vline(aes(xintercept=(ymd("2024-10-01"))), linetype="dashed")+
+  geom_vline(aes(xintercept=(ymd("2025-10-01"))), linetype="dashed")+
   facet_wrap(~Year,scales = "free_y")+
   labs(x="Date",y="Daily Coho",fill="")+
   theme_babine4()
@@ -248,7 +248,7 @@ plot.dist.timing1
 plot.dist.timing2 <- ggplot(data=tmp2)+
   geom_ribbon(aes(x=fake.date, ymin=0, ymax=Count, fill=periodf))+
   geom_line(aes(x=fake.date, y=Count), col="black")+
-  geom_vline(aes(xintercept=(ymd("2024-10-01"))), linetype="dashed")+
+  geom_vline(aes(xintercept=(ymd("2025-10-01"))), linetype="dashed")+
   facet_wrap(~Year,scales = "free_y")+
   labs(x="Date",y="Daily Coho",fill="")+
   theme_babine4()
@@ -259,7 +259,7 @@ plot.dist.timing2
 plot.dist.timing3 <- ggplot(data=tmp3)+
   geom_ribbon(aes(x=fake.date, ymin=0, ymax=Count, fill=periodf))+
   geom_line(aes(x=fake.date, y=Count), col="black")+
-  geom_vline(aes(xintercept=(ymd("2024-10-01"))), linetype="dashed")+
+  geom_vline(aes(xintercept=(ymd("2025-10-01"))), linetype="dashed")+
   facet_wrap(~Year,scales = "free_y")+
   labs(x="Date",y="Daily Coho",fill="")+
   theme_babine4()
@@ -273,7 +273,7 @@ plot.timing.ext <- ggplot()+
   geom_point(data=date.of.operation, 
              aes(x=Year, y=last.julian), shape="-", size=2)+
   geom_text(aes(x=base.yrs,y=min(timing.extensionyrs$julian),label="*"))+
-  scale_x_continuous(breaks=seq(1950,2024,2), labels = seq(1950,2024,2))+
+  scale_x_continuous(breaks=seq(1950,2025,2), labels = seq(1950,2025,2))+
   labs(x="Year", y="Julian Day")+
   theme_babine4()
   # theme(axis.text.x = element_text(angle=45, hjust=1),
@@ -324,7 +324,7 @@ plot.start.timing <- ggplot(start)+
                         round(start.sum$coeff[2,4], 2))))+
   geom_smooth(aes(x=as.integer(Year), y=julian), method="lm")+
   labs(title = "Start of Run", x="Year", y="Julian Day")+
-  scale_x_continuous(breaks=seq(1946,2024,2), labels = seq(1946,2024,2))+
+  scale_x_continuous(breaks=seq(1946,2025,2), labels = seq(1946,2025,2))+
   #theme(axis.text.x = element_text(angle=45, hjust=1))+
   theme_babine4()
 plot.start.timing
@@ -347,7 +347,7 @@ plot.med.timing <- ggplot(median)+
                         round(median.sum$coeff[2,4], 2))))+
   geom_smooth(aes(x=as.integer(Year), y=julian), method="lm")+
   labs(title = "Median of Run", x="Year", y="Julian Day")+
-  scale_x_continuous(breaks=seq(1950,2024,2), labels = seq(1950,2024,2))+
+  scale_x_continuous(breaks=seq(1950,2025,2), labels = seq(1950,2025,2))+
   #theme(axis.text.x = element_text(angle=45, hjust=1))+
   theme_babine4()
 plot.med.timing
@@ -367,7 +367,7 @@ plot.end.timing <- ggplot(end)+
                         round(end.sum$coeff[2,4], 2))))+
   geom_smooth(aes(x=as.integer(Year), y=julian), method="lm")+
   labs(title = "End of Run",x="Year", y="Julian Day")+
-  scale_x_continuous(breaks=seq(1950,2024,2), labels = seq(1950,2024,2))+
+  scale_x_continuous(breaks=seq(1950,2025,2), labels = seq(1950,2025,2))+
   theme_babine4()
   #theme(axis.text.x = element_text(angle=45, hjust=1))
 plot.end.timing
@@ -398,12 +398,12 @@ plot.stop.timing <- ggplot(stop)+
                         round(stop.sum$coeff[2,4], 2))))+
   geom_smooth(aes(x=as.integer(Year), y=julian), method="lm")+
   labs(title = "stop of Run", x="Year", y="Julian Day")+
-  scale_x_continuous(breaks=seq(1946,2024,2), labels = seq(1946,2024,2))+
+  scale_x_continuous(breaks=seq(1946,2025,2), labels = seq(1946,2025,2))+
   #theme(axis.text.x = element_text(angle=45, hjust=1))+
   theme_babine4()
 plot.stop.timing
 
-
+# note that this is fully under human control, so not really a comment on Coho run timing...
 
 
 
@@ -422,13 +422,13 @@ base.yrs <- c(1950,1952, 1957, 1976, 1977, 1979, 1985,
 
 # calculate ave daily proportion of run for base years. Holtby method
 # apparently split pre-1992 and post-1992, and post 1998 (see spreadsheet)
-
+# Not sure how this is justified but they have it in the Holtby report!
 
 unique(babine.extensions2$Year)
 
 #can assign a cut-off day for days to make 
 # averages from (currently all days)
-cut.off.holtby <- yday(ymd("2024-12-31"))
+cut.off.holtby <- yday(ymd("2025-12-31"))
 
 # summarize total count before cut-off day
 total.base.byyr <- babine.extensions2 %>% 
@@ -549,13 +549,13 @@ plot.holtby.exp <- ggplot(total.byyr)+
    geom_hline(aes(yintercept=1200))+
    geom_hline(aes(yintercept=11500),linetype="dashed")+ #LRP from Holtby at 11500
  # geom_vline(aes(xintercept=c(1992)), linetype="dotted")+
-  scale_x_continuous(limits = c(1999,2025),breaks = seq(2000,2024,2))+
+  scale_x_continuous(limits = c(1999,2026),breaks = seq(2000,2026,2))+
   scale_y_continuous(limits = c(0,24000), breaks = seq(0,24000,4000))+
   labs(y="Coho Count (grey) and \nExpansion (black)",x="")+
   theme_babine4()
 plot.holtby.exp  
 
-ggsave(plot=plot.holtby.exp, filename = "plot.holtby.exp_RW_PSR2024.png",
+ggsave(plot=plot.holtby.exp, filename = "plot.holtby.exp_RW_PSR2025.png",
        width= 6, height = 4)
         
 
