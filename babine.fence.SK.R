@@ -12,7 +12,7 @@ library(readxl)
 library(tidyverse)
 library(ggplot2)
 library(lubridate)
-
+options(scipen=999)
 
 #### ggplot themes ####
 theme_babine4 <- function(base_size = 14) {
@@ -74,7 +74,7 @@ theme_babine5 <- function(base_size = 14) {
 ### QAd FENCE DATA ####
 
 
-##### Compile QA'd fence data (2014 to 2024 (Missing 2020 raw data)) ####
+##### Compile QA'd fence data (2014 to 2025 (Missing 2020 raw data)) ####
 
 ct <- c("date", "numeric","numeric","numeric","numeric","numeric",
         "numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric",
@@ -168,8 +168,28 @@ fence2024 <- read_excel("./fencedata/BabineFence_2024-daily reporting_FINAL.xlsx
                                       "DemojkSK","DemoLgSK","DemoPK"),
                         col_types = ct)
 
-fence20142024 <- rbind(fence2014, fence2015, fence2016, fence2017, fence2018, fence2019, 
-                       fence2021, fence2022, fence2023, fence2024) %>% #excludes 2020
+fence2025 <- read_excel("./fencedata/BabineFence_2025_daily reporting_PRELIM.xlsx", 
+                        sheet="Daily Summary",range = "A4:V131",
+                        col_names = c("date","lgSK","jkSK","CO","PK","lgCH","jkCH",
+                                      "ST","Char","SK.morts","CO.morts","PK.morts",
+                                      "CH.morts","Other.morts","FSC.SK","FSC.CO",
+                                      "FSC.PK","FSC.CH", "FSC.ST",
+                                      "DemojkSK","DemoLgSK","DemoPK"),
+                        col_types = ct) %>% 
+                        mutate(SK.morts = ifelse(is.na(SK.morts),0,SK.morts),
+                               CO.morts = ifelse(is.na(CO.morts),0,CO.morts),
+                               PK.morts = ifelse(is.na(PK.morts),0,PK.morts),
+                               CH.morts = ifelse(is.na(CH.morts),0,CH.morts),
+                               FSC.SK = ifelse(is.na(FSC.SK),0,FSC.SK),
+                               FSC.CO = ifelse(is.na(FSC.CO),0,FSC.CO),
+                               FSC.PK = ifelse(is.na(FSC.PK),0,FSC.PK),
+                               FSC.CH = ifelse(is.na(FSC.CH),0,FSC.CH),
+                               DemoLgSK = ifelse(is.na(DemoLgSK),0,DemoLgSK),
+                               DemojkSK = ifelse(is.na(DemojkSK),0,DemojkSK),
+                               DemoPK = ifelse(is.na(DemoPK),0,DemoPK))
+
+fence20142025 <- rbind(fence2014, fence2015, fence2016, fence2017, fence2018, fence2019, 
+                       fence2021, fence2022, fence2023, fence2024, fence2025) %>% #excludes 2020
   mutate(year = year(date), fyear = as.factor(year), yday = yday(date)) 
 
 
@@ -177,7 +197,7 @@ fence20142024 <- rbind(fence2014, fence2015, fence2016, fence2017, fence2018, fe
 #### HISTORIC FENCE DATA ####
 
 
-yr.names <- as.character(c(1946, 1947,1949:1963,1965:2013)) #do not have cdaily counts from 1948 or 1964
+yr.names <- as.character(c(1946, 1947,1949:1963,1965:2013)) #do not have daily counts from 1948 or 1964
 
 fencehistoric.raw.lgSK <- read_excel("./fencedata/Babine Adult Weir Count-sourceStockdrive_copy9-Mar-2025.xls",
            sheet = "RAW LG SOCKEYE DATA", range = "A395:BO569", col_names = c("date.int",yr.names)) %>% 
@@ -230,17 +250,20 @@ fence2020 <- fence2020 %>%
          year = year(date)) %>% 
   select(year,date,yday,lgSK,jkSK,PK)
 
-fence.all <- fence20142024 %>% 
+fence.all <- fence20142025 %>% 
   mutate(date = as_date(date),
           lgSK = lgSK+SK.morts+FSC.SK+DemoLgSK,
          jkSK =jkSK+DemojkSK,
          PK = PK+PK.morts+FSC.PK+DemoPK) %>% 
-  select(year,date,yday,lgSK,jkSK,PK) %>% 
+         # CO = CO+CO.morts+FSC.CO,
+         # CH.lg = lgCH+CH.morts+FSC.CH,
+         # CH.jk = jkCH) %>% 
+  select(year,date,yday,lgSK,jkSK,PK) %>%  #CO, CH.lg, CH.jk
   rbind(fencehistoric, fence2020) %>% 
   arrange(date)
 
 #export csv of all observed daily counts
-#write_csv(fence.all, "Babine.fence.daily.obs.lgSK-jkSK-PK1946-2024.csv")
+#write_csv(fence.all, "Babine.fence.daily.obs.lgSK-jkSK-PK1946-2025.csv")
 
 fence.all.long <- fence.all %>% 
   pivot_longer(cols = !c(year,date,yday),
@@ -249,34 +272,33 @@ fence.all.long <- fence.all %>%
 
 fence.observed.yrly <- fence.all.long %>% 
   group_by(year,species) %>% 
-  summarize(total.obs = sum(total, na.rm=T),
+  dplyr::summarize(total.obs = sum(total, na.rm=T),
             first.day = as.Date(first(date)),
             first.yday = yday(first.day),
             last.day = as.Date(last(date)))
 
-y <- fence.observed.yrly[fence.observed.yrly$species %in%"PK",]
 
 #plot the totals by species over the years
-ggplot(fence.observed.yrly[fence.observed.yrly$year %in% c(2010:2024),])+
+ggplot(fence.observed.yrly[fence.observed.yrly$year %in% c(1946:2025),])+
   geom_line(aes(x=year, y=total.obs, col=species))+
-  scale_x_continuous(breaks = seq(2010,2024,1))
+  scale_x_continuous(breaks = seq(1946,2025,4))
 
 #plot the start date. Note in recent years the goal is to install by the second monday in July.
 # the 2nd Monday is appr. :
-yday(dmy("11-Jul-2016"))#193
-yday(dmy("10-Jul-2017"))#191
-yday(dmy("09-Jul-2018"))#190
-yday(dmy("08-Jul-2019"))#189
-yday(dmy("13-Jul-2020"))#195
-yday(dmy("12-Jul-2021"))#193
-yday(dmy("11-Jul-2022"))#192
-yday(dmy("10-Jul-2023"))#191
-yday(dmy("08-Jul-2024"))#190
-# appr 192 
+# yday(dmy("11-Jul-2016"))#193
+# yday(dmy("10-Jul-2017"))#191
+# yday(dmy("09-Jul-2018"))#190
+# yday(dmy("08-Jul-2019"))#189
+# yday(dmy("13-Jul-2020"))#195
+# yday(dmy("12-Jul-2021"))#193
+# yday(dmy("11-Jul-2022"))#192
+# yday(dmy("10-Jul-2023"))#191
+# yday(dmy("08-Jul-2024"))#190
+# # appr 192 
 
 ggplot(fence.observed.yrly)+
   geom_point(aes(x=year, y=first.yday))+
-  geom_hline(aes(yintercept = 192))
+  geom_hline(aes(yintercept = 210))
 
 as_date(210, origin = ymd("2025-01-01")) #appr. end of July
 
@@ -289,13 +311,15 @@ fence.timing <- fence.all %>%
             last.day = as.Date(last(date))) %>% 
   mutate(late = ifelse(first.yday >= 210, T, F))
 
-fence.timing[fence.timing$late %in% T,]
+(late.start.yrs <- fence.timing[fence.timing$late %in% T,])
 
 
 #### visualize run timing SOCKEYE####
 
 #visualize timing of the run thru season (borrowed from my babine.fence.CO.R)
-yr.select <- 2000:2024
+yr.select <- 1946:2025
+full.yrs <- setdiff(yr.select,as.integer(late.start.yrs$year))
+
 
 fence.lgSK <- fence.all %>% 
   select(year,date, yday,lgSK) %>% 
@@ -312,15 +336,15 @@ fence.jkSK <- fence.all %>%
          cumulprop = round(cumulsum/total.obs,4))
 
 #setup
-x <- data.frame(year=yr.select,start=as_date(NA),first.quart = as_date(NA), 
+x <- data.frame(year=full.yrs, start=as_date(NA),first.quart = as_date(NA), 
                 median = as_date(NA),third.quart = as_date(NA), end = as_date(NA))
 #proportion of the run 
 props <- c(0.1,0.25,0.5,0.75,0.9,1)
 
 #this is fast, but could turn into function if too laggy
-for (i in 1:length(yr.select)){
+for (i in 1:length(full.yrs)){
   data <- fence.lgSK %>% 
-    filter(year %in% yr.select[i])
+    filter(year %in% full.yrs[i])
   x[i,"start"] <- data[first(which(abs(data$cumulprop-props[1])==min(abs(data$cumulprop-props[1])))),"date"]
   x[i,"first.quart"] <- data[first(which(abs(data$cumulprop-props[2])==min(abs(data$cumulprop-props[2])))),"date"]
   x[i,"median"] <- data[first(which(abs(data$cumulprop-props[3])==min(abs(data$cumulprop-props[3])))),"date"]
@@ -329,10 +353,10 @@ for (i in 1:length(yr.select)){
 }
 
 date.of.operation <- fence.lgSK %>% 
-  filter(year %in% yr.select) %>% 
+  filter(year %in% full.yrs) %>% 
   group_by(year) %>% 
   arrange(date) %>% 
-  summarize(first.day = date[1], last.day = tail(date,1)) %>% 
+  dplyr::summarize(first.day = date[1], last.day = tail(date,1)) %>% 
   mutate(last.julian = yday(last.day))
 
 
@@ -346,13 +370,21 @@ summary(lm(yday~year, data = timing.long[timing.long$phase %in% "median",]))
 #   onwards shows a non-significant later returning trend. Should take into account late starts/migration 
 #   from extended freshets (see Stiff et al 2015)
 
-ggplot(data=timing.long)+
+ggsave(
+ggplot(data=timing.long[timing.long$phase %in% c("first.quart","median","third.quart"),])+
   geom_point(aes(x=year,y=yday, col=phase))+
   geom_line(aes(x=year,y=yday, col=phase))+
-  geom_smooth(aes(x=year,y=yday, col=phase),method = "lm")
+  geom_smooth(aes(x=year,y=yday, col=phase),method = "lm")+
+  scale_x_continuous(breaks = seq(min(timing.long$year),max(timing.long$year),5))+
+  labs(x="year",y="Julian day",col="", title="Timing of Large Sockeye at Babine Fence")+
+  theme_babine4()+
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(axis.text=element_text(size=12, hjust=1, angle=45),
+        axis.title=element_text(size=14,face="bold"))
+  ,width=8, height=6, filename = "Babine.lgSK.timing1946-2025.png")
 
 tmp <- fence.lgSK %>% 
-  filter(year %in% yr.select) %>% 
+  filter(year %in% full.yrs) %>% 
   left_join(x, by="year")  %>% 
   # mutate(period = ifelse(Date < start, "start",
   #                        ifelse(Date >= start & Date <= first.quart, "first.quart",
@@ -371,27 +403,28 @@ tmp1 <- tmp %>%
 tmp2 <- tmp %>%
   filter(year %in% c(1990:1999))
 tmp3 <- tmp %>%
-  filter(year %in% c(2000:2024))
+  filter(year %in% c(2000:2025))
 
-plot.dist.timing <- ggplot(data=tmp3)+
+plot.dist.timing <- ggplot(data=tmp3[tmp3$year>=2023,])+
   geom_ribbon(aes(x=fake.date, ymin=0, ymax=lgSK, fill=periodf))+
   geom_line(aes(x=fake.date, y=lgSK), col="black")+
   facet_wrap(~year,scales = "free_y")+
   labs(x="Date",y="Daily lg SK",fill="")+
+  scale_x_date(limits = c(ymd("2025-07-01"),ymd("2025-10-15")))+
   theme_babine4()
 plot.dist.timing
 
- # ggsave(plot=plot.dist.timing, filename = "lgSk_runtiming2000-2024.png",
- #        device="png",width=10, height=6)
+ ggsave(plot=plot.dist.timing, filename = "lgSk_runtiming2023-2025.png",
+        device="png",width=10, height=6)
 
 
 
 #calc ave. daily proportion of the run for a period of time
-ave.daily.prop.lgSK9324 <- fence.lgSK %>% 
+ave.daily.prop.lgSK9325 <- fence.lgSK %>% 
   filter(year >= 1993) %>% 
   group_by(yday) %>% 
   summarize(ave.daily.prop.lgSK = mean(daily.prop, na.rm=T)) %>% 
-  mutate(year.cat = "1993-2024",  
+  mutate(year.cat = "1993-2025",  
          fake.date= as_date(yday, origin = ymd("2025-01-01")))
 #ave.daily.prop.jkSK = mean(daily.prop.jkSK, na.rm=T))
  
@@ -400,16 +433,16 @@ ave.daily.prop.lgSK9324 <- fence.lgSK %>%
 
 #interpolate for six days in 2018 wildfire (julian days 235 to 240 need filling):
 #calc daily proportion of the run for a period of time
-ggplot(ave.daily.prop.lgSK9324)+
+ggplot(ave.daily.prop.lgSK9325)+
   geom_line(aes(x=yday, y=ave.daily.prop.lgSK))+
-  geom_line(data=fence.lgSK[fence.lgSK$year %in% 2018,], aes(x=yday,y=daily.prop),col="red")
+  geom_line(data=fence.lgSK[fence.lgSK$year %in% 2025,], aes(x=yday,y=daily.prop),col="red")
  
-ggplot(fence.lgSK[fence.lgSK$year %in% 2018,])+
-  geom_density(aes(x=lgSK), fill="blue", alpha=0.5)
+# ggplot(fence.lgSK[fence.lgSK$year %in% 2018,])+
+#   geom_density(aes(x=lgSK), fill="blue", alpha=0.5)
 
 #look at smoothed kde instead of daily ave proportion
-ggplot(ave.daily.prop.lgSK9324)+
-  geom_density(aes(x=ave.daily.prop.lgSK))
+# ggplot(ave.daily.prop.lgSK9324)+
+#   geom_density(aes(x=ave.daily.prop.lgSK))
 
 
 ave.daily.prop.lgSK9317 <- fence.lgSK %>% 
@@ -440,43 +473,51 @@ ggplot()+
   geom_line(data=infill.fence2018, aes(x=yday,y=lgSK))+
   geom_point(data=infill.fence2018, aes(x=yday,y=lgSK, col=infill))
 
-#interpolate for 2011:
+# #interpolate for 2011:
+# 
+# #interpolate for late start in 2011 (julian days 195 to 222 need predicting):
+# #calc daily proportion of the run for a period of time
+# ggplot(ave.daily.prop.lgSK9324)+
+#   geom_line(aes(x=yday, y=ave.daily.prop.lgSK))+
+#   geom_line(data=fence.lgSK[fence.lgSK$year %in% 2011,], aes(x=yday,y=daily.prop),col="red")
+# 
+# ave.daily.prop.lgSK9310 <- fence.lgSK %>% 
+#   filter(year %in% 1993:2010) %>% 
+#   group_by(yday) %>% 
+#   summarize(ave.daily.prop.lgSK = mean(daily.prop, na.rm=T)) %>% 
+#   mutate(year.cat = "1993-2010")
+# 
+# ave.daily.prop.lgSK.10yr <- fence.lgSK %>% 
+#   filter(year %in% c(2006:2010,2012:2016)) %>% 
+#   group_by(yday) %>% 
+#   summarize(ave.daily.prop.lgSK = mean(daily.prop, na.rm=T)) %>% 
+#   mutate(year.cat = "2006:2010,2012:2016")
+# 
+# infill.fence2011 <- fence.lgSK %>% 
+#   filter(year %in% 2011) %>% 
+#   mutate(yday)
+#   right_join(ave.daily.prop.lgSK.10yr,by="yday",keep = T) %>% 
+#   mutate(lgSK = ifelse(year %in% 2011 & yday %in% 195:222, 
+#                        total.obs*ave.daily.prop.lgSK,lgSK),
+#          infill = ifelse(year %in% 2011 & yday %in% 195:222,T,NA))
+# 
+# infill.fence2011 %>% 
+#   filter(year %in% 2011) %>% 
+#   summarize(total.obs = sum(lgSK))
+# 
+# ggplot()+
+#   geom_line(data=infill.fence2011, aes(x=yday,y=lgSK))+
+#   geom_point(data=infill.fence2011, aes(x=yday,y=lgSK, col=infill))
 
-#interpolate for late start in 2011 (julian days 195 to 222 need predicting):
-#calc daily proportion of the run for a period of time
-ggplot(ave.daily.prop.lgSK9324)+
-  geom_line(aes(x=yday, y=ave.daily.prop.lgSK))+
-  geom_line(data=fence.lgSK[fence.lgSK$year %in% 2011,], aes(x=yday,y=daily.prop),col="red")
-
-ave.daily.prop.lgSK9310 <- fence.lgSK %>% 
-  filter(year %in% 1993:2010) %>% 
-  group_by(yday) %>% 
-  summarize(ave.daily.prop.lgSK = mean(daily.prop, na.rm=T)) %>% 
-  mutate(year.cat = "1993-2010")
-
-ave.daily.prop.lgSK.10yr <- fence.lgSK %>% 
-  filter(year %in% c(2006:2010,2012:2016)) %>% 
-  group_by(yday) %>% 
-  summarize(ave.daily.prop.lgSK = mean(daily.prop, na.rm=T)) %>% 
-  mutate(year.cat = "2006:2010,2012:2016")
-
-infill.fence <- fence.lgSK %>% 
-  right_join(ave.daily.prop.lgSK.10yr,by="yday") %>% 
-  mutate(lgSK = ifelse(year %in% 2011 & yday %in% 195:222, 
-                       total.obs*ave.daily.prop.lgSK,lgSK),
-         infill = ifelse(year %in% 2011 & yday %in% 195:222,T,F))
-infill.fence %>% 
-  filter(year %in% 2011) %>% 
-  summarize(total.obs = sum(lgSK))
 
 
 #interpolation using Fulton/Pinkut channel/river/surplus regression (1992, 2007)
 
-cols <- read_excel("./fencedata/Tablesupdates_2025_updateKP-copy7-Mar-2025.xlsx", sheet = "Wood95",
+cols <- read_excel("./fencedata/Tablesupdates_2025_updateKP-copy-11-mar-2025.xlsx", sheet = "Wood95",
                    range = "A12:AV12", .name_repair = "universal")
 noquote(names(cols))
-wood95 <- read_excel("./fencedata/Tablesupdates_2025_updateKP-copy7-Mar-2025.xlsx", sheet = "Wood95",
-                     skip = 14, col_names = names(cols)) %>% 
+wood95 <- read_excel("./fencedata/Tablesupdates_2025_updateKP-copy-11-mar-2025.xlsx", sheet = "Wood95",
+                     range = "A15:AV90", col_names = names(cols)) %>% 
   select(year = ...3,lgSK = Babine.Fence.Count..adults.,
          BLDPeffective.sp = Fulton...Pinkut.Effective.Esc.,
          babine.fence.catch=Catch.at.Babine.Fence...Above,
@@ -509,6 +550,195 @@ lm.surplus19502010$coeff[1]+lm.surplus19502010$coeff[2]*116490 #2007 visual surp
 # mmm... doesn't quite get there. Possibly they didn't actually use this method for 2007
 
 
+# Compare estimates versus the observed counts
+
+
+compare.estimates.lgSK <- wood95 %>% 
+  mutate(year = as.numeric(year)) %>% 
+  select(year, est.lgSK = lgSK) %>% 
+  left_join(fence.observed.yrly[fence.observed.yrly$species %in% "lgSK",c("year","total.obs")], by="year") %>% 
+  mutate(diff.lgSK = est.lgSK-total.obs) %>% 
+  select(year,est.lgSK,obs.lgSK=total.obs, diff.lgSK)
+
+ggplot(compare.estimates.lgSK)+
+  geom_bar(aes(x=year, y=obs.lgSK+diff.lgSK), stat="identity", fill="black",width = 0.9)+
+  geom_bar(aes(x=year, y=obs.lgSK), stat="identity",width = 0.9)+
+  scale_x_continuous(breaks = seq(min(compare.estimates.lgSK$year),max(compare.estimates.lgSK$year),5))+
+  scale_y_continuous(labels = scales::comma)+
+  labs(x="year",title="Estimated Large Sockeye Run to Babine Fence (black=extrapolation)",y="Large Sockeye")
+  
+all.estimates <- compare.estimates.lgSK %>% 
+  left_join(fence.observed.yrly[fence.observed.yrly$species %in% "jkSK",c("year","total.obs")], by="year") %>% 
+  select(year,est.lgSK,obs.lgSK, diff.lgSK, obs.jkSK=total.obs) %>% 
+  left_join(fence.observed.yrly[fence.observed.yrly$species %in% "PK",c("year","total.obs")], by="year") %>% 
+  select(year,est.lgSK,obs.lgSK, diff.lgSK, obs.jkSK, obs.PK=total.obs) %>% 
+  mutate(cycle = ifelse(year %% 2, "odd","even"))
+
+ggsave(
+  ggplot(all.estimates)+
+  geom_line(aes(x=year, y=est.lgSK), col="black", linewidth=1)+
+    geom_point(aes(x=year, y=est.lgSK), col="black", size=.75)+
+  geom_line(aes(x=year, y=obs.jkSK), col="gray", linewidth=1)+
+    geom_point(aes(x=year, y=obs.jkSK), col="gray", size=0.75)+
+  scale_x_continuous(breaks = seq(min(all.estimates$year),max(all.estimates$year),2))+
+  scale_y_continuous(labels = scales::comma)+
+  labs(x="year",title="",y="Large (Black) and Jack (gray) Sockeye")+
+  theme_babine4()+
+    theme(plot.title = element_text(hjust = 0.5)) +
+    theme(axis.text=element_text(size=14, hjust=1, angle=45),
+          axis.title=element_text(size=14,face="bold"))
+  ,width=8, height = 6, filename="Babine.SK.1950-2025.png")
+
+
+ggplot(all.estimates[all.estimates$cycle %in% "even",])+
+  geom_line(aes(x=year, y=obs.PK), col="purple", linewidth=1)+
+  scale_x_continuous(breaks = seq(min(all.estimates$year),max(all.estimates$year),2))+
+  scale_y_continuous(labels = scales::comma)+
+  labs(x="year",title="Even Years",y="Pinks")+
+  theme_babine4()
+
+
+ggplot(all.estimates[all.estimates$cycle %in% "odd",])+
+  geom_line(aes(x=year, y=obs.PK), col="purple", linewidth=1)+
+  scale_x_continuous(breaks = seq(min(all.estimates$year+1),max(all.estimates$year),2))+
+  scale_y_continuous(labels = scales::comma)+
+  labs(x="year",title="Odd Year Cycle",y="Pinks")+
+  theme_babine4()
+  
+ggsave(
+ggplot(all.estimates)+
+  geom_line(aes(x=year, y=obs.PK, linetype = cycle), col="purple", linewidth=1)+
+  geom_point(aes(x=year, y=obs.PK, shape = cycle), col="purple")+
+  scale_x_continuous(breaks = seq(min(all.estimates$year),max(all.estimates$year),2))+
+  scale_y_continuous(labels = scales::comma)+
+  labs(x="year",title="",y="Pinks", linetype="")+
+  theme_babine4()
+  ,width=8, height = 6, filename="Babine.PK.1950-2025.png")
+
+
+# chinook and Coho totals since 2014
+fence.COCH1425 <- fence20142025 %>% 
+  mutate(date = as_date(date),
+          CO = CO+CO.morts+FSC.CO,
+          CH.lg = lgCH+CH.morts+FSC.CH,
+          CH.jk = jkCH) %>%
+  select(year,date,yday,CO, CH.lg, CH.jk) %>%  #
+  arrange(date)
+
+fence.COCH1425.long <- fence.COCH1425 %>% 
+  pivot_longer(cols = !c(year,date,yday),
+               names_to = "species",
+               values_to = "total")
+
+fence.observed.yrlyCOCH <- fence.COCH1425.long %>% 
+  group_by(year,species) %>% 
+  summarize(total.obs = sum(total, na.rm=T),
+            first.day = as.Date(first(date)),
+            first.yday = yday(first.day),
+            last.day = as.Date(last(date)))
+
+
+#plot the totals of CH over the years
+ggsave(
+ggplot(fence.observed.yrlyCOCH[fence.observed.yrlyCOCH$species %in% c("CH.lg", "CH.jk"),])+
+  geom_line(aes(x=year, y=total.obs, col=species), linewidth=1)+
+  geom_point(aes(x=year, y=total.obs, col=species), size=0.75)+
+  scale_x_continuous(breaks = seq(2014,2025,1))+
+  labs(y="total return")+
+  theme_babine4()
+  ,width=8, height = 6, filename="Babine.CH.2014-2025.png")
+
+
+
+#### visualize run timing CHINOOK####
+
+#visualize timing of the run thru season (borrowed from my babine.fence.CO.R)
+yr.select <- 2014:2025
+full.yrs <- setdiff(yr.select,as.integer(late.start.yrs$year))
+
+fence.lgCH <- fence.COCH1425 %>% 
+  select(year,date, yday,CH.lg) %>% 
+  left_join(fence.observed.yrlyCOCH[fence.observed.yrlyCOCH$species %in% "CH.lg",c("year","total.obs")], by="year") %>% 
+  group_by(year) %>% 
+  mutate(cumulsum = cumsum(CH.lg),daily.prop = CH.lg/total.obs, 
+         cumulprop = round(cumulsum/total.obs,4))
+
+#setup
+x <- data.frame(year=full.yrs, start=as_date(NA),first.quart = as_date(NA), 
+                median = as_date(NA),third.quart = as_date(NA), end = as_date(NA))
+#proportion of the run 
+props <- c(0.1,0.25,0.5,0.75,0.9,1)
+
+#this is fast, but could turn into function if too laggy
+for (i in 1:length(full.yrs)){
+  data <- fence.lgCH %>% 
+    filter(year %in% full.yrs[i])
+  x[i,"start"] <- data[first(which(abs(data$cumulprop-props[1])==min(abs(data$cumulprop-props[1])))),"date"]
+  x[i,"first.quart"] <- data[first(which(abs(data$cumulprop-props[2])==min(abs(data$cumulprop-props[2])))),"date"]
+  x[i,"median"] <- data[first(which(abs(data$cumulprop-props[3])==min(abs(data$cumulprop-props[3])))),"date"]
+  x[i,"third.quart"] <- data[first(which(abs(data$cumulprop-props[4])==min(abs(data$cumulprop-props[4])))),"date"]
+  x[i,"end"] <- data[first(which(abs(data$cumulprop-props[5])==min(abs(data$cumulprop-props[5])))),"date"]
+}
+
+date.of.operation <- fence.lgCH %>% 
+  filter(year %in% full.yrs) %>% 
+  group_by(year) %>% 
+  arrange(date) %>% 
+  dplyr::summarize(first.day = date[1], last.day = tail(date,1)) %>% 
+  mutate(last.julian = yday(last.day))
+
+
+timing.long <- x %>%
+  pivot_longer(!year, names_to="phase", values_to = "date") %>% 
+  mutate(yday = yday(date)) 
+
+summary(lm(yday~year, data = timing.long[timing.long$phase %in% "first.quart",]))
+summary(lm(yday~year, data = timing.long[timing.long$phase %in% "median",]))
+#from the above: long term trends (from 1950) are pretty flat, but from 2000 
+#   onwards shows a non-significant later returning trend. Should take into account late starts/migration 
+#   from extended freshets (see Stiff et al 2015)
+
+ggsave(
+  ggplot(data=timing.long[timing.long$phase %in% c("first.quart","median","third.quart"),])+
+    geom_point(aes(x=year,y=yday, col=phase))+
+    geom_line(aes(x=year,y=yday, col=phase))+
+    geom_smooth(aes(x=year,y=yday, col=phase),method = "lm")+
+    scale_x_continuous(breaks = seq(min(timing.long$year),max(timing.long$year),5))+
+    labs(x="year",y="Julian day",col="", title="Timing of Large Chinook at Babine Fence")+
+    theme_babine4()+
+    theme(plot.title = element_text(hjust = 0.5)) +
+    theme(axis.text=element_text(size=12, hjust=1, angle=45),
+          axis.title=element_text(size=14,face="bold"))
+  ,width=8, height=6, filename = "Babine.lgCH.timing2014-2025.png")
+
+tmp <- fence.lgCH %>% 
+  filter(year %in% full.yrs) %>% 
+  left_join(x, by="year")  %>% 
+  # mutate(period = ifelse(Date < start, "start",
+  #                        ifelse(Date >= start & Date <= first.quart, "first.quart",
+  #                               ifelse(Date >= first.quart & Date <= median, "median",
+  #                                      ifelse(Date >= median & Date <= third.quart, "third.quart",
+  #                                             ifelse(Date >= third.quart & Date <= end, "end",
+  #                                                    ifelse(Date >= end, "final", NA))))))) %>%
+  mutate(period = ifelse(date < first.quart, "first quarter",
+                         ifelse(date >= first.quart & date < third.quart, "middle half",
+                                ifelse(date >= third.quart, "last quarter", NA)))) %>%
+  mutate(periodf = factor(period, levels=c("first quarter","middle half","last quarter"),
+                          ordered=T)) %>% 
+  mutate(fake.date = as_date(yday, origin = ymd("2025-01-01")))
+
+tmp3 <- tmp %>%
+  filter(year %in% c(2000:2025))
+
+plot.dist.timing <- ggplot(data=tmp3)+
+  geom_ribbon(aes(x=fake.date, ymin=0, ymax=CH.lg, fill=periodf))+
+  geom_line(aes(x=fake.date, y=CH.lg), col="black")+
+  facet_wrap(~year,scales = "free_y")+
+  labs(x="Date",y="Daily lg CH",fill="")+
+  theme_babine4()
+plot.dist.timing
+ggsave(plot = plot.dist.timing, filename = "plot.dist.timingCH2014.2025.png",width=8, height=6)
+
 #### Environmental Conditions #### 
 
 # Babine R at outlet of Nilkitkwa L: 08EC013 (just d/s of fence)
@@ -539,7 +769,7 @@ temp_08EC013.raw <- read_excel("Water_Temp.Telemetry@08EC013.EntireRecord.xlsx",
   mutate(Value = ifelse(Value %in% 99999, NA, Value)) %>% 
   mutate(date = as_date(`Timestamp (UTC-08:00)`)) %>% 
   mutate(yday = yday(date),year = year(date),
-         fake.date = as_date(yday-1,origin = ymd("2024-01-01")))
+         fake.date = as_date(yday-1,origin = ymd("2025-01-01")))
 
 temp_08EC013 <- read_excel("Water_Temp.Telemetry@08EC013.EntireRecord.xlsx", 
                            sheet= "Water_Temp.Telemetry@08EC013.En",skip = 14) %>% 
@@ -550,7 +780,7 @@ temp_08EC013 <- read_excel("Water_Temp.Telemetry@08EC013.EntireRecord.xlsx",
             mean.daily.deg = mean(Value, na.rm=T),
             max.daily.deg = max(Value, na.rm=T)) %>% 
   mutate(yday = yday(date),year = year(date),
-         fake.date = as_date(yday-1,origin = ymd("2024-01-01")))
+         fake.date = as_date(yday-1,origin = ymd("2025-01-01")))
 str(temp_08EC013)
 
 #max temps
@@ -558,7 +788,7 @@ plot.temp_08EC013 <- ggplot(temp_08EC013[temp_08EC013$year>=2016,])+
   geom_line(aes(x=fake.date, y=max.daily.deg)) + 
   geom_hline(aes(yintercept = 18), col="gray50", linetype="dashed")+
   geom_hline(aes(yintercept = 20), col="gray50", linetype="dotted")+
-  scale_x_date(limits = c(ymd("2024-06-15"),ymd("2024-09-30")),
+  scale_x_date(limits = c(ymd("2025-06-15"),ymd("2025-09-30")),
                date_breaks = "1 week", date_labels = "%b-%d")+
   scale_y_continuous(limits = c(10,23), breaks = seq(10,22,2))+
   facet_wrap(~year) +
@@ -575,7 +805,7 @@ plot.temp_08EC013min <- ggplot(temp_08EC013[temp_08EC013$year>=2016,])+
   geom_line(aes(x=fake.date, y=min.daily.deg)) + 
   geom_hline(aes(yintercept = 18), col="gray50", linetype="dashed")+
   geom_hline(aes(yintercept = 20), col="gray50", linetype="dotted")+
-  scale_x_date(limits = c(ymd("2024-06-15"),ymd("2024-09-30")),
+  scale_x_date(limits = c(ymd("2025-06-15"),ymd("2025-09-30")),
                date_breaks = "1 week", date_labels = "%b-%d")+
   scale_y_continuous(limits = c(10,23), breaks = seq(10,22,2))+
   facet_wrap(~year) +
@@ -586,12 +816,12 @@ plot.temp_08EC013min
 
 #max and min
 #min temps
-plot.temp_08EC013minmax <- ggplot(temp_08EC013[temp_08EC013$year>=2016,])+
+plot.temp_08EC013minmax <- ggplot(temp_08EC013[temp_08EC013$year>=2018,])+
   geom_line(aes(x=fake.date, y=min.daily.deg), col="gray50") + 
   geom_line(aes(x=fake.date, y=max.daily.deg), col="gray25") + 
   geom_hline(aes(yintercept = 18), col="gray50", linetype="dashed")+
   geom_hline(aes(yintercept = 20), col="gray50", linetype="dotted")+
-  scale_x_date(limits = c(ymd("2024-06-15"),ymd("2024-09-30")),
+  scale_x_date(limits = c(ymd("2025-06-15"),ymd("2025-09-30")),
                date_breaks = "1 week", date_labels = "%b-%d")+
   scale_y_continuous(limits = c(10,23), breaks = seq(10,22,2))+
   facet_wrap(~year) +
@@ -600,17 +830,17 @@ plot.temp_08EC013minmax <- ggplot(temp_08EC013[temp_08EC013$year>=2016,])+
   theme(axis.text.x = element_text(hjust=1, angle=45))
 plot.temp_08EC013minmax
 
-#ggsave(filename = "plot.temp_08EC013minmax2016-2024.png",
-#       plot = plot.temp_08EC013minmax, 
-#               device = "png", width = 8, height = 6)
+ggsave(filename = "plot.temp_08EC013minmax2018-2025.png",
+      plot = plot.temp_08EC013minmax,
+              device = "png", width = 9, height = 6)
 
 plot.temp_08EC013minmax2024 <- ggplot(temp_08EC013[temp_08EC013$year>=2024,])+
   geom_line(aes(x=fake.date, y=min.daily.deg), col="gray50") + 
   geom_line(aes(x=fake.date, y=max.daily.deg), col="gray25") + 
   geom_hline(aes(yintercept = 18), col="gray50", linetype="dashed")+
   geom_hline(aes(yintercept = 20), col="gray50", linetype="dotted")+
-  geom_vline(aes(xintercept = ymd("2024-08-03")), col="red")+
-  scale_x_date(limits = c(ymd("2024-06-15"),ymd("2024-09-30")),
+  geom_vline(aes(xintercept = ymd("2025-08-03")), col="red")+
+  scale_x_date(limits = c(ymd("2025-06-15"),ymd("2025-09-30")),
                date_breaks = "1 week", date_labels = "%b-%d")+
   scale_y_continuous(limits = c(10,23), breaks = seq(10,22,2))+
   facet_wrap(~year) +
@@ -621,7 +851,7 @@ plot.temp_08EC013minmax2024 <- ggplot(temp_08EC013[temp_08EC013$year>=2024,])+
 plot.temp_08EC013minmax2024
 
 ggsave(plot = plot.temp_08EC013minmax2024, 
-       filename = "plot.temp_08EC013minmax2024_2.png", width=7, height=5)
+       filename = "plot.temp_08EC013minmax2024-2025.png", width=7, height=5)
 
 
 
@@ -629,7 +859,7 @@ ggplot(temp_08EC013[temp_08EC013$year>=2016,])+
   geom_line(aes(x=fake.date, y=max.daily.deg, col=as_factor(year))) +
   geom_hline(aes(yintercept = 18), linetype="dashed")+
   geom_hline(aes(yintercept = 20), linetype="dotted")+
-  scale_x_date(limits = c(ymd("2024-06-01"),ymd("2024-09-30")),
+  scale_x_date(limits = c(ymd("2025-06-01"),ymd("2025-09-30")),
                date_breaks = "1 week", date_labels = "%b-%d")+
   scale_y_continuous(limits = c(8,23), breaks = seq(8,22,2))+
   labs(x="Date",y="Water Temperature (deg. C)",col="",
@@ -707,45 +937,46 @@ plot.ave.temp.SKseason1522
 
 # Flows
 
-year.select <- c(1976:2024)
+year.select <- c(1976:2025)
 
 hydro.babine <- hy_daily_flows(station_number = c("08EC013")) %>% 
   mutate(Year = year(Date), julian = yday(Date)) %>% 
   filter(Year %in% year.select) %>% 
   #filter(julian<=278 & julian >= 213) %>% 
-  mutate(fake.date = as_date(julian-1,origin="2024-01-01")) %>% 
+  mutate(fake.date = as_date(julian-1,origin="2025-01-01")) %>% 
   mutate(fyear = factor(Year, order = T))  %>% 
   select(-"Symbol")
 #filter(julian %in% c(yday(ymd("2021-aug-01")),yday(ymd("2021-dec-01"))) ) %>% 
 #filter(!is.na(year))
 
-# bab.flows.real.raw <- realtime_dd(station_number = "08EC013") %>% 
-#   mutate(Date = as_date(Date)) %>% 
-#   select(STATION_NUMBER,Date, Parameter, Value) %>% 
-#   group_by(STATION_NUMBER, Date, Parameter) %>% 
-#   summarize(Value = mean(Value, na.rm=T)) %>% 
-#   filter(Parameter %in% "Flow") %>% 
-#   mutate(Year = year(Date), julian = yday(Date),fake.date = as_date(julian,origin="2023-01-01"),
-#          fyear = factor(Year, order = T))
+bab.flows.real.raw <- realtime_dd(station_number = "08EC013") %>%
+  mutate(Date = as_date(Date)) %>%
+  select(STATION_NUMBER,Date, Parameter, Value) %>%
+  group_by(STATION_NUMBER, Date, Parameter) %>%
+  summarize(Value = mean(Value, na.rm=T)) %>%
+  filter(Parameter %in% "Flow") %>%
+  mutate(Year = year(Date), julian = yday(Date),fake.date = as_date(julian,origin="2025-01-01"),
+         fyear = factor(Year, order = T))
 
 
-bab.flows.real.raw <- read_csv("08EC013_QR_20241130T0035.csv",skip = 10,
-                               col_types = c("c","?","?","?","?"),
-                               col_names = c("Date","Parameter","Value","Approval","Qualifier")) %>% 
-  mutate(Date = ymd(substr(Date,1,10)), Parameter = "Flow") %>% 
-  group_by(Date, Parameter) %>% 
-  summarize(ave.flow = mean(Value, na.rm=T)) %>% #ave daily flow 
-  select(Date,Parameter, Value=ave.flow) %>% 
-  mutate(Year = year(Date), fyear = as.factor(Year),
-         julian = yday(Date),fake.date = as_date(julian-1,origin="2024-01-01"),
-         STATION_NUMBER = "08EC013", decade = "2020s")
+# bab.flows.real.raw <- read_csv("08EC013_QR_20250527T2128.csv",skip = 10,
+#                                col_types = c("c","?","?","?","?"),
+#                                col_names = c("Date","Parameter","Value","Approval","Qualifier")) %>% 
+#   mutate(Date = ymd(substr(Date,1,10)), Parameter = "Flow") %>% 
+#   group_by(Date, Parameter) %>% 
+#   summarize(ave.flow = mean(Value, na.rm=T)) %>% #ave daily flow 
+#   select(Date,Parameter, Value=ave.flow) %>% 
+#   mutate(Year = year(Date), fyear = as.factor(Year),
+#          julian = yday(Date),fake.date = as_date(julian-1,origin="2024-01-01"),
+#          STATION_NUMBER = "08EC013", decade = "2020s")
 
 
 setdiff(names(hydro.babine),names(bab.flows.real.raw))
 names(hydro.babine)
 names(bab.flows.real.raw)
 
-hydro.babine <- rbind(hydro.babine, bab.flows.real.raw) %>% 
+hydro.babine <- hydro.babine %>% 
+  rbind(bab.flows.real.raw) %>% 
   mutate(decade = ifelse(Year %in% c(1940:1949), "1940s",
                          ifelse(Year %in% c(1950:1959), "1950s",
                                 ifelse(Year %in% c(1960:1969), "1960s",
@@ -755,6 +986,7 @@ hydro.babine <- rbind(hydro.babine, bab.flows.real.raw) %>%
                                                             ifelse(Year %in% c(2000:2009), "2000s",
                                                                    ifelse(Year %in% c(2010:2019), "2010s", 
                                                                           ifelse(Year %in% c(2020:2029), "2020s", NA))))))))))
+  
 
 
 
@@ -763,28 +995,28 @@ hydro.babine <- rbind(hydro.babine, bab.flows.real.raw) %>%
 
 # Find the average levels from 2013-2023
 
-level.babine.raw <- read_csv("08EC013_HG_20241121T1708.csv", skip = 10,
+level.babine.raw <- read_csv("08EC013_HG_20251103T1856.csv", skip = 10,
                              col_types = c("c","?","?","?","?"),
                              col_names = c("Date","Parameter","Value","Approval","Qualifier")) %>% 
   mutate(Date = ymd(substr(Date,1,10)), Parameter = "Level") %>% 
-  mutate(Year = year(Date), julian = yday(Date),fake.date = as_date(julian-1,origin="2024-01-01"),
+  mutate(Year = year(Date), julian = yday(Date),fake.date = as_date(julian-1,origin="2025-01-01"),
          fyear = factor(Year, order = T), STATION_NUMBER = "08EC013")
 
-level.babine <- read_csv("08EC013_HG_20241121T1708.csv", skip = 10,
+level.babine <- read_csv("08EC013_HG_20251103T1856.csv", skip = 10,
                          col_types = c("c","?","?","?","?"),
                          col_names = c("Date","Parameter","Value","Approval","Qualifier")) %>% 
   mutate(Date = ymd(substr(Date,1,10)), Parameter = "Level") %>% 
   group_by(Date, Parameter) %>% 
   summarize(ave.level = mean(Value, na.rm=T)) %>% 
   select(Date,Parameter, Value=ave.level) %>% 
-  mutate(Year = year(Date), julian = yday(Date),fake.date = as_date(julian-1,origin="2024-01-01"),
+  mutate(Year = year(Date), julian = yday(Date),fake.date = as_date(julian-1,origin="2025-01-01"),
          fyear = factor(Year), STATION_NUMBER = "08EC013")
 
 historic.lvl.babine <- hy_daily_levels(station_number = c("08EC013")) %>% 
   mutate(Year = year(Date), julian = yday(Date)) %>% 
   filter(Year %in% year.select) %>% 
   #filter(julian<=278 & julian >= 213) %>% 
-  mutate(fake.date = as_date(julian-1,origin="2024-01-01")) %>% 
+  mutate(fake.date = as_date(julian-1,origin="2025-01-01")) %>% 
   mutate(fyear = factor(Year, order = T))  %>% 
   select(-"Symbol")
 
@@ -807,7 +1039,7 @@ plot.lvl_08EC013 <- ggplot(levels.babine[levels.babine$Year>=2016,])+
   geom_line(aes(x=fake.date, y=Value)) + 
   geom_hline(aes(yintercept = 0.35), col="gray50", linetype="dashed")+
   geom_hline(aes(yintercept = 0.2), col="gray25", linetype="dotted")+
-  scale_x_date(limits = c(ymd("2024-06-15"),ymd("2024-09-30")),
+  scale_x_date(limits = c(ymd("2025-06-15"),ymd("2025-09-30")),
                date_breaks = "1 week", date_labels = "%b-%d")+
   scale_y_continuous(limits = c(0,1.4), breaks = seq(0,1.4,0.2))+
   facet_wrap(~Year) +
@@ -816,15 +1048,15 @@ plot.lvl_08EC013 <- ggplot(levels.babine[levels.babine$Year>=2016,])+
   theme(axis.text.x = element_text(hjust=1, angle=45))
 plot.lvl_08EC013
 
-# ggsave(plot = plot.lvl_08EC013, filename = "plot.ave.lvl.1624.png",
+# ggsave(plot = plot.lvl_08EC013, filename = "plot.ave.lvl.1625.png",
 #        device = "png", width=8, height=6)
 
-plot.lvl_08EC013_2024 <- ggplot(levels.babine[levels.babine$Year>=2024,])+
+plot.lvl_08EC013_2024_25 <- ggplot(levels.babine[levels.babine$Year>=2024,])+
   geom_line(aes(x=fake.date, y=Value)) + 
   geom_hline(aes(yintercept = 0.35), col="gray50", linetype="dashed")+
   geom_hline(aes(yintercept = 0.2), col="gray25", linetype="dotted")+
   #geom_vline(aes(xintercept = ymd("2024-08-03")), col="red")+
-  scale_x_date(limits = c(ymd("2024-06-15"),ymd("2024-09-30")),
+  scale_x_date(limits = c(ymd("2025-06-15"),ymd("2025-09-30")),
                date_breaks = "1 week", date_labels = "%b-%d")+
   scale_y_continuous(limits = c(0,1), breaks = seq(0,1,0.2))+
   facet_wrap(~Year) +
@@ -832,9 +1064,9 @@ plot.lvl_08EC013_2024 <- ggplot(levels.babine[levels.babine$Year>=2024,])+
        title="Mean daily water level (June-Sept.), Stn 08EC013")+
   theme(axis.text.x = element_text(hjust=1, angle=45))+
   theme_babine4()
-plot.lvl_08EC013_2024
+plot.lvl_08EC013_2024_25
 
-ggsave(plot= plot.lvl_08EC013_2024, filename = "plot.lvl_08EC013_2024_2.png",
+ggsave(plot= plot.lvl_08EC013_2024_25, filename = "plot.lvl_08EC013_2024-2025.png",
        width=7, height=5)
 
 
@@ -935,40 +1167,44 @@ ggplot(high.flows.bab)+
 ##### 2024 flows compared to past years ####
 
 decadal.flows <- hydro.babine %>% 
-  filter(Year %in% c(1970:2022)) %>% 
+  filter(Year %in% c(1970:2025)) %>% 
   group_by(decade, fake.date) %>% 
   summarize(daily.min = min(Value), daily.max = max(Value))
 
 
 
-bab.flows.real.raw23 <- bab.flows.real.raw %>% 
-  filter(Year %in% 2023)
-bab.flows.real.raw24 <- bab.flows.real.raw %>% 
-  filter(Year %in% 2024)
+# bab.flows.real.raw23 <- bab.flows.real.raw %>% 
+#   filter(Year %in% 2023)
+# bab.flows.real.raw24 <- bab.flows.real.raw %>% 
+#   filter(Year %in% 2024)
+bab.flows.real.raw25 <- bab.flows.real.raw %>% 
+  filter(Year %in% 2025)
 
 ggsave(plot = ggplot()+
          geom_ribbon(data = decadal.flows, aes(x=fake.date, ymin=daily.min,
                                                ymax = daily.max, fill=decade), alpha = 0.5)+
-         geom_line(data=bab.flows.real.raw23,aes(x=fake.date, y=Value), col="red", linewidth=1)+
-         geom_text(aes(x=ymd("2024-08-31"), y=10,label = "2023"), col="red", size=5)+
-         geom_line(data=bab.flows.real.raw24,aes(x=fake.date, y=Value), col="purple", linewidth=1.5)+
-         geom_text(aes(x=ymd("2024-08-01"), y=15,label = "2024"), col="purple", size=5)+
-         scale_x_date(limits = c(limits = c(ymd("2024-07-10"), ymd("2024-09-30"))),
+         # geom_line(data=bab.flows.real.raw23,aes(x=fake.date, y=Value), col="red", linewidth=1)+
+         # geom_text(aes(x=ymd("2024-08-31"), y=10,label = "2025"), col="red", size=5)+
+         # geom_line(data=bab.flows.real.raw24,aes(x=fake.date, y=Value), col="purple", linewidth=1.5)+
+         # geom_text(aes(x=ymd("2024-08-01"), y=15,label = "2024"), col="purple", size=5)+
+         geom_line(data=bab.flows.real.raw25,aes(x=fake.date, y=Value), col="blue", linewidth=1.5)+
+         geom_text(aes(x=ymd("2024-08-01"), y=15,label = "2025"), col="blue", size=5)+
+         scale_x_date(limits = c(limits = c(ymd("2024-03-10"), ymd("2024-05-30"))),
                       date_labels = "%b-%d", date_breaks = "2 weeks")+
          scale_y_continuous(breaks = seq(0,220,20), limits = c(0,220))+
          theme_babine5()+
          labs(title="08EC013 (station d/s of Babine fence)", x="date",y="discharge (cms)", 
               fill="min-max \nby decade"),
-       filename = "2023+2024flowsBabine.png",device="png",width = 10,height=6)
+       filename = "2023+2024+2025flowsBabine.png",device="png",width = 10,height=6)
 
 historic <- hydro.babine %>% 
-  filter(Year %in% c(2015:2023)) %>% 
+  filter(Year %in% c(2015:2025)) %>% 
   group_by(fyear)
 
 ggsave(plot=ggplot()+
          geom_line(data=historic,aes(x=fake.date, y=Value, group=fyear, col=fyear),  size=1.25, alpha=0.6)+
          #geom_line(data=bab.flows.real.raw23,aes(x=fake.date, y=Value), col="black",  size=1.25)+
-         geom_line(data=bab.flows.real.raw24,aes(x=fake.date, y=Value), col="red",  size=1.25)+
+         geom_line(data=bab.flows.real.raw25,aes(x=fake.date, y=Value), col="red",  size=1.25)+
          scale_x_date(limits = c(limits = c(ymd("2024-06-08"), ymd("2024-09-30"))),
                       date_labels = "%b-%d", date_breaks = "2 weeks")+
          geom_text(aes(x=ymd("2024-08-01"), y=15,label = "2024"), col="red", size=5)+
@@ -976,7 +1212,7 @@ ggsave(plot=ggplot()+
          labs(title="08EC013 (station d/s of Babine fence)", x="date",y="discharge (cms)", 
               col="year (2015 onward)")+
          theme(axis.text.x = element_text(hjust=1, angle=45)),
-       filename = "2024flowsBabine2.png",device="png",width = 10,height=6)
+       filename = "2025flowsBabine2.png",device="png",width = 10,height=6)
 
 
 #Skeena.flows.real.raw <- realtime_dd(station_number = "08EB005")
@@ -1343,30 +1579,48 @@ ggplot()+
 
 # read in long format data, multiple lines per fish, each for for a timing group with 
 # probability for that fish being assigned to a given timing group
-d_cu <- read_xlsx("PID20230115_Babine_Fence_FSC(23)_sc50_2024-05-08_NF_week.xlsx", 
+d_cu23 <- read_xlsx("PID20230115_Babine_Fence_FSC(23)_sc50_2024-05-08_NF_week.xlsx", 
                   sheet="repunits_ids")
+d_cu24 <- read_xlsx("PID20240134(1)_Babine_Fence_(24)_sc75_2025-02-25.xlsx", 
+                    sheet="repunits_ids")
+d_cu <- rbind(d_cu23, d_cu24)
+
 str(d_cu)
 # read in wide format data, with rep units and top baseline collections it corresponds to
-d_cu_wide <- read_xlsx("PID20230115_Babine_Fence_FSC(23)_sc50_2024-05-08_NF_week.xlsx", 
+d_cu_wide23 <- read_xlsx("PID20230115_Babine_Fence_FSC(23)_sc50_2024-05-08_NF_week.xlsx", 
                        sheet="repunits_table_ids")
-str(d_cu_wide)
+d_cu_wide24 <- read_xlsx("PID20240134(1)_Babine_Fence_(24)_sc75_2025-02-25.xlsx", 
+                       sheet="repunits_table_ids")
+
+str(d_cu_wide23)
 
 # read in extraction sheet, with one line per fish, with date sampled 
-es <- read_xlsx("PID20230115_Babine_Fence_FSC(23)_sc50_2024-05-08_NF_week.xlsx",
+es23 <- read_xlsx("PID20230115_Babine_Fence_FSC(23)_sc50_2024-05-08_NF_week.xlsx",
                 sheet="extraction_sheet") %>% 
   mutate(catch_date = ymd(as.Date(as.numeric(CatchDate..YYYY.MM.DD.), origin = "1899-12-30")),
          catch_julian_date = as.integer(CatchJulDate), isoweek = isoweek(catch_date)) %>% 
   select(indiv, CatchYear,catch_date,catch_julian_date,isoweek,Fish,Vial)
+
+es24 <- read_xlsx("PID20240134(1)_Babine_Fence_(24)_sc75_2025-02-25.xlsx",
+                sheet="extraction_sheet") %>% 
+  mutate(catch_date = ymd(as.Date(as.numeric(CatchDate..YYYY.MM.DD.), origin = "1899-12-30")),
+         catch_julian_date = as.integer(CatchJulDate), isoweek = isoweek(catch_date)) %>% 
+  select(indiv, CatchYear,catch_date,catch_julian_date,isoweek,Fish,Vial)
+es <- rbind(es23, es24)
+
 
 # Read in key of CU names
 cu_key <- read_xlsx("PID20230115_Babine_Fence_FSC(23)_sc50_2024-05-08_NF_week.xlsx",
                     sheet="baseline_collections")
 
 # read in collection data
-MGL_template <- read_excel("MGL-Mixed-stock tissue Babine River Fence Sockeye-2023.xlsx",
+MGL_template23 <- read_excel("MGL-Mixed-stock tissue Babine River Fence Sockeye-2023.xlsx",
                            sheet="template",skip=17)
-str(MGL_template)
+str(MGL_template23)
 
+MGL_template24 <- read_excel("MGL-Mixed-stock tissue Babine River Fence Sockeye-2024.xlsx",
+                             sheet="template",skip=17)
+str(MGL_template24)
 
 # merge long format results with CU names
 dfc <- d_cu %>% 
@@ -1375,7 +1629,7 @@ dfc <- d_cu %>%
 
 sum.by.week <- dfc %>% 
   filter(rank %in% 1) %>% 
-  group_by(isoweek) %>% 
+  group_by(isoweek, CatchYear) %>% 
   summarize(n.early = length(which(repunit %in% "Babine_Early")),
             n.mid = length(which(repunit %in% "Babine_Mid")),
             n.late = length(which(repunit %in% "Babine_Late")),
@@ -1384,7 +1638,7 @@ sum.by.week <- dfc %>%
             perc.late = n.late/(n.early+n.mid+n.late))
 sum.by.date <- dfc %>% 
   filter(rank %in% 1) %>% 
-  group_by(catch_date) %>% 
+  group_by(catch_date, CatchYear) %>% 
   summarize(n.early = length(which(repunit %in% "Babine_Early")),
             n.mid = length(which(repunit %in% "Babine_Mid")),
             n.late = length(which(repunit %in% "Babine_Late")),
@@ -1552,6 +1806,101 @@ total.SK2023 <- weekly.SK2023 %>%
             total.mid = sum(perc.mid),
             total.late = sum(perc.late))
 total.SK2023
+
+
+# 2024 revision based on Eric Rondeau's recommendation in "custom_estimates"
+
+custom_est2024 <- read_xlsx("PID20240134(1)_Babine_Fence_(24)_sc75_2025-02-25.xlsx",
+          sheet="custom_estimates", skip=8, .name_repair = "universal") 
+
+ce_24long <- custom_est2024 %>% 
+  select(-Display_Order) %>% 
+  pivot_longer(-group) %>% 
+  mutate()
+
+  sum.by.week.wide85 <- sum.by.week_wide85 %>% 
+  select(isoweek, perc.pinkut,perc.morrison,perc.4mile,
+         perc.fulton, perc.pierre,perc.tahlolower,perc.upperbabine) %>% 
+  pivot_longer(-isoweek)
+
+  #I was in a bit of a hurry so I transposed the results by hand... no uncertainty captured here, not ideal!
+  
+custom_est2024KP <- read_xlsx("MGL_results_2024_KP.xlsx",
+                              sheet="Sheet1", .name_repair = "universal") 
+custom_est2024KPlong <- custom_est2024KP %>% 
+  select(wk, Babine.early, Babine.mid, Babine.late) %>% 
+  pivot_longer(-wk) %>% 
+  mutate(name = factor(name, levels = c("Babine.early", "Babine.mid","Babine.late")))
+
+ggsave(
+ggplot(custom_est2024KPlong)+
+  geom_bar(aes(x=wk, y=value, fill=name), position = "dodge", stat="identity")+
+  labs(x="week", y="% assignment", fill="")+
+  theme_babine4()
+,width=6, height=4, filename = "2024 genetic assignment.png")
+
+
+
+# Biosampling SOCKEYE ####
+
+#2024
+
+SK2024biosample <- read_xlsx("BabineFence_2024-biosampling.xlsx",
+                             sheet="forR", .name_repair = "universal",
+                             col_types = c("skip","numeric","date","text",
+                                           "text","guess","guess","guess",
+                                           "guess","guess","guess","guess",
+                                           "guess","guess","guess","guess",
+                                           "guess","guess","guess","guess","guess")) %>% 
+  mutate(isoweek = isoweek(Date),yday=yday(Date), fake.date=as_date(yday, origin = ymd("2025-01-01")))
+
+
+dailySKbiosample2024 <- SK2024biosample %>% 
+  filter(Sample.Source %in% c("Live","FSC")) %>% 
+  group_by(yday, isoweek) %>% 
+  summarize(tot.sampled = length(Species)) %>% 
+  mutate(fake.date = as_date(yday, origin = ymd("2025-01-01")))
+
+fence2024 <- fence2024 %>% 
+  mutate(yday=yday(date), isoweek = isoweek(date))
+
+ggsave(plot=
+ggplot(fence2024)+
+  geom_line(aes(x=yday, y=lgSK))+
+  scale_x_continuous(limits = c(190,270))+
+  geom_hline(aes(yintercept = 1000), alpha = .5)+
+  geom_point(data=dailySKbiosample2024, aes(x=yday,y=tot.sampled))+
+  theme_babine4()
+,width=7,height=6, filename = "biosampling.timing2024.png")
+
+#2025 
+SK2025biosample <- read_xlsx("Biosampling Totals 2025.xlsx",
+                             sheet="Sheet1", .name_repair = "universal") %>% 
+  mutate(isoweek = isoweek(Date),yday=yday(Date))
+
+weeklySKbiosample2025 <- SK2025biosample %>% 
+  filter(sample.source %in% c("live","FSC")) %>% 
+  group_by(isoweek) %>% 
+  summarize(tot.sampled = sum(SK.measured, na.rm=T),
+            ave.yday = mean(yday, na.rm=T)) %>% 
+  mutate(fake.date = as_date(ave.yday, origin = ymd("2025-01-01")))
+
+fence2025 <- fence2025 %>% 
+  mutate(yday = yday(date), isoweek = as.factor(isoweek(date)))
+
+ggsave(plot=
+ggplot(fence2025)+
+  geom_line(aes(x=yday, y=lgSK))+
+  scale_x_continuous(limits = c(190,270))+
+  geom_hline(aes(yintercept = 1000), alpha = .5)+
+  #geom_point(data=weeklySKbiosample2025, aes(x=ave.yday,y=tot.sampled))
+  geom_point(data=SK2025biosample, aes(x=yday,y=SK.measured))+
+  theme_babine4()
+,width=7,height=6, filename = "biosampling.timing2025.png")
+
+
+
+
 
 
 
