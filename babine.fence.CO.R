@@ -551,7 +551,7 @@ plot.holtby.exp <- ggplot(total.byyr)+
  # geom_vline(aes(xintercept=c(1992)), linetype="dotted")+
   scale_x_continuous(limits = c(1999,2026),breaks = seq(2000,2026,2))+
   scale_y_continuous(limits = c(0,24000), breaks = seq(0,24000,4000))+
-  labs(y="Coho Count (grey) and \nExpansion (black)",x="")+
+  labs(y="Coho Count (black) and \nExpansion (grey)",x="")+
   theme_babine4()
 plot.holtby.exp  
 
